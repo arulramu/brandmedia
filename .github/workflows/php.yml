@@ -1,39 +1,41 @@
-name: PHP Composer
+name: PHP CI/CD
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-permissions:
-  contents: read
+    branches:
+      - main # Trigger on pushes to the main branch 
 
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
-
+  build-and-deploy:
+    runs-on: ubuntu-latest # Use a fresh Ubuntu environment
+    
     steps:
-    - uses: actions/checkout@v4
+      # 1. Checkout your code 
+      - uses: actions/checkout@v3
 
-    - name: Validate composer.json and composer.lock
-      run: composer validate --strict
+      # 2. Set up PHP 
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1' # Adjust if needed
+          extensions: mbstring, gd, xml, zip # Add required extensions 
+          
+      # 3. Install Composer dependencies
+      - name: Install Dependencies
+        run: composer install --no-progress --no-interaction
+        
+      # 4. Run tests (if applicable)
+      - name: Run Tests
+        run: vendor/bin/phpunit # Or your testing framework command
 
-    - name: Cache Composer packages
-      id: composer-cache
-      uses: actions/cache@v3
-      with:
-        path: vendor
-        key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-php-
-
-    - name: Install dependencies
-      run: composer install --prefer-dist --no-progress
-
-    # Add a test script to composer.json, for instance: "test": "vendor/bin/phpunit"
-    # Docs: https://getcomposer.org/doc/articles/scripts.md
-
-    # - name: Run test suite
-    #   run: composer run-script test
+      # 5. Deployment (Example using rsync for simplicity)
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@master 
+        with:
+          host: ${{ secrets.SSH_HOST }} # Your server IP
+          username: ${{ secrets.SSH_USER }} # Your server username
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: | # Deployment commands
+            cd /var/www/your-project-directory
+            git pull origin main
+            composer install --no-dev  # Install without dev dependencies
